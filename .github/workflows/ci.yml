@@ -1,0 +1,39 @@
+name: CI
+
+on: 
+  pull_request:
+    branches: [main, master]
+
+env:
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+jobs:
+  ci_job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        run: |
+          cd extract_api_data
+          docker build -t lambda-test .
+
+      - name: Run code quality checks
+        run: |
+          # Create a temporary container to run quality checks
+          docker run --rm -v $(pwd)/extract_api_data:/app -w /app lambda-test bash -c "
+            black . --check --diff &&
+            isort . --check-only --diff &&
+            flake8 . &&
+            python -m py_compile api_data.py
+          "
+
+      - name: Test Docker container
+        run: |
+          cd extract_api_data
+          docker run --rm lambda-test python -c "import api_data; print('Import successful')"

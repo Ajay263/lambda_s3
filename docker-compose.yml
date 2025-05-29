@@ -1,0 +1,20 @@
+version: "3.8"
+
+services:
+  lambda_job:
+    build:
+      context: ./extract_api_data
+    container_name: lambda_job
+    environment:
+      - Authorization=${Authorization:-"Bearer your-token-here"}
+      - BUCKET_NAME=movie-api-data-daily
+
+  terraform:
+    image: hashicorp/terraform:latest
+    volumes:
+      - ./terraform:/infra
+    working_dir: /infra
+    environment:
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_DEFAULT_REGION=eu-west-3

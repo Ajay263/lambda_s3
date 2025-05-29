@@ -1,0 +1,75 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: GitHub OIDC Role for Lambda Deployment with Required Permissions
+
+Resources:
+  GitHubActionsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: GitHub_Actions_Lambda_Role
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Sub arn:aws:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringLike:
+                'token.actions.githubusercontent.com:sub': 'repo:YOUR_GITHUB_USERNAME/YOUR_REPO_NAME:*'
+              StringEquals:
+                'token.actions.githubusercontent.com:aud': 'sts.amazonaws.com'
+      Policies:
+        - PolicyName: GitHubActionsLambdaDeployPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: S3Access
+                Effect: Allow
+                Action: 
+                  - s3:*
+                Resource: 
+                  - arn:aws:s3:::*
+                  - arn:aws:s3:::*/*
+              - Sid: IAMAccess
+                Effect: Allow
+                Action: 
+                  - iam:*
+                Resource: "*"
+              - Sid: LambdaAccess
+                Effect: Allow
+                Action: 
+                  - lambda:*
+                Resource: "*"
+              - Sid: ECRAccess
+                Effect: Allow
+                Action: 
+                  - ecr:*
+                Resource: "*"
+              - Sid: CloudWatchAccess
+                Effect: Allow
+                Action: 
+                  - events:*
+                  - logs:*
+                  - cloudwatch:*
+                Resource: "*"
+              - Sid: GlobalReadPermissions
+                Effect: Allow
+                Action:
+                  - sts:GetCallerIdentity
+                  - sts:AssumeRole
+                Resource: "*"
+
+  GitHubActionsOidcProvider:
+    Type: AWS::IAM::OIDCProvider
+    Properties:
+      ClientIdList:
+        - sts.amazonaws.com
+      ThumbprintList:
+        - 6938fd4d98bab03faadb97b34396831e3780aea1
+        - 1c58a3a8518e8759bf075b76b750d4f2df264fcd
+      Url: https://token.actions.githubusercontent.com
+
+Outputs:
+  RoleArn:
+    Description: ARN of the GitHub Actions Role
+    Value: !GetAtt GitHubActionsRole.Arn
