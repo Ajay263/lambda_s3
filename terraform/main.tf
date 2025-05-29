@@ -1,5 +1,5 @@
 terraform {
-  required_version = ">= 1.9.5"
+    required_version = ">= 1.9.5"
   required_providers {
     aws = {
       source  = "hashicorp/aws"
@@ -34,7 +34,7 @@ resource "aws_s3_bucket_versioning" "movie_bucket_versioning" {
 # ECR Repository
 resource "aws_ecr_repository" "ecr_repo" {
   name = var.lambda_ecr_repo
-
+  
   image_scanning_configuration {
     scan_on_push = true
   }
@@ -43,7 +43,7 @@ resource "aws_ecr_repository" "ecr_repo" {
 # IAM Role for Lambda
 resource "aws_iam_role" "lambda_iam_role" {
   name = var.lambda_iam_role_name
-
+  
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -95,30 +95,23 @@ resource "aws_iam_role_policy" "lambda_policy" {
   })
 }
 
-# Flag to determine if image exists
-variable "lambda_image_exists" {
-  description = "Set to true once you've pushed an image to ECR"
-  type        = bool
-  default     = false
-}
-
 # Lambda Function - Only created when image exists
 resource "aws_lambda_function" "movie_api_lambda" {
   count         = var.lambda_image_exists ? 1 : 0
   function_name = var.lambda_function_name
-  role          = aws_iam_role.lambda_iam_role.arn
-
+  role         = aws_iam_role.lambda_iam_role.arn
+  
   package_type = "Image"
   image_uri    = "${aws_ecr_repository.ecr_repo.repository_url}:latest"
-
+  
   timeout = 60
-
+  
   environment {
     variables = {
       BUCKET_NAME = aws_s3_bucket.movie_bucket.id
     }
   }
-
+  
   depends_on = [aws_ecr_repository.ecr_repo]
 }
 
@@ -132,7 +125,7 @@ resource "aws_cloudwatch_event_rule" "event_rule" {
 
 # EventBridge Target - Only created when Lambda exists
 resource "aws_cloudwatch_event_target" "lambda_target" {
-  count     = var.lambda_image_exists ? 1 : 0
+  count      = var.lambda_image_exists ? 1 : 0
   rule      = aws_cloudwatch_event_rule.event_rule[0].name
   target_id = "TriggerLambdaTarget"
   arn       = aws_lambda_function.movie_api_lambda[0].arn

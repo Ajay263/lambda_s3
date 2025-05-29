@@ -1,6 +1,6 @@
 output "lambda_function_name" {
   description = "Name of the Lambda function"
-  value       = aws_lambda_function.movie_api_lambda.function_name
+  value       = var.lambda_image_exists ? aws_lambda_function.movie_api_lambda[0].function_name : "Lambda not deployed yet"
 }
 
 output "ecr_repository_url" {
