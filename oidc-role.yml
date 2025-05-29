@@ -1,0 +1,30 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: GitHub OIDC Role for API Data Extraction with Lambda Container Deployments
+
+Parameters:
+  GitHubRepository:
+    Type: String
+    Default: YOUR_GITHUB_USERNAME/lambda_s3
+    Description: GitHub repository name (username/repo)
+
+Resources:
+  GitHubActionsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: GitHub_Actions_Role
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Sub arn:aws:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+              StringLike:
+                # Make sure this matches your GitHub user/org and repo name
+                token.actions.githubusercontent.com:sub: repo:${GitHubRepository}:*
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess
+      # Keep any other policies you had previously

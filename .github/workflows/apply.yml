@@ -29,15 +29,23 @@ jobs:
         working-directory: ./terraform
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.ROLE_TO_ASSUME }}
           aws-region: us-east-1
           role-session-name: GitHubActions
-
-      - name: Checkout
-        uses: actions/checkout@v4
+          
+      - name: Verify AWS Credentials
+        run: |
+          echo "Verifying AWS credentials..."
+          aws sts get-caller-identity
+          echo "Checking S3 access..."
+          aws s3 ls
+          echo "AWS credentials verified."
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
