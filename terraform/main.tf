@@ -18,9 +18,16 @@ provider "aws" {
   region = var.region
 }
 
+# Additional provider for us-east-1 region
+provider "aws" {
+  alias  = "us-east-1"
+  region = "us-east-1"
+}
+
 # S3 Bucket for storing API data
 resource "aws_s3_bucket" "movie_bucket" {
-  bucket = var.bucket_name
+  provider = aws.us-east-1
+  bucket   = var.bucket_name
 }
 
 resource "aws_s3_bucket_versioning" "movie_bucket_versioning" {
