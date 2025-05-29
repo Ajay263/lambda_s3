@@ -31,5 +31,11 @@ variable "lambda_function_name" {
 variable "region" {
   type        = string
   description = "AWS region"
-  default     = "eu-west-3"
+  default     = "us-east-1"
+}
+
+variable "lambda_image_exists" {
+  type        = bool
+  description = "Flag to indicate if the Lambda Docker image has been pushed to ECR"
+  default     = false
 }

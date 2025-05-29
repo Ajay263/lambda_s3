@@ -11,6 +11,7 @@ on:
         options:
           - apply
           - destroy
+          - apply-with-lambda
 
 permissions:
   contents: read
@@ -52,15 +53,27 @@ jobs:
       - name: Terraform Validate
         run: terraform validate
 
-      - name: Terraform Plan
+      - name: Terraform Plan - Initial Infrastructure
         if: github.event.inputs.action == 'apply'
-        run: terraform plan -input=false -out=tfplan
+        run: terraform plan -input=false -out=tfplan -var="lambda_image_exists=false"
 
-      - name: Terraform Apply
+      - name: Terraform Apply - Initial Infrastructure
         if: github.event.inputs.action == 'apply'
         run: terraform apply -input=false -auto-approve tfplan
 
+      - name: Terraform Plan - With Lambda
+        if: github.event.inputs.action == 'apply-with-lambda'
+        run: terraform plan -input=false -out=tfplan -var="lambda_image_exists=true"
+
+      - name: Terraform Apply - With Lambda
+        if: github.event.inputs.action == 'apply-with-lambda'
+        run: terraform apply -input=false -auto-approve tfplan
+
+      - name: Terraform Plan - Destroy
+        if: github.event.inputs.action == 'destroy'
+        run: terraform plan -destroy -out=tfplan -input=false
+
       - name: Terraform Destroy
         if: github.event.inputs.action == 'destroy'
-        run: terraform destroy -input=false -auto-approve
+        run: terraform apply -input=false -auto-approve tfplan
         
