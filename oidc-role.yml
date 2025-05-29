@@ -1,11 +1,6 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: GitHub OIDC Role for API Data Extraction with Lambda Container Deployments
-
-Parameters:
-  GitHubRepository:
-    Type: String
-    Default: YOUR_GITHUB_USERNAME/lambda_s3
-    Description: GitHub repository name (username/repo)
+Description: GitHub OIDC Role for GamePulse Terraform Deployment and Lambda
+  Container Deployments
 
 Resources:
   GitHubActionsRole:
@@ -20,11 +15,108 @@ Resources:
               Federated: !Sub arn:aws:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com
             Action: sts:AssumeRoleWithWebIdentity
             Condition:
+              StringLike:
+                token.actions.githubusercontent.com:sub: repo:Ajay263/lambda_s3:*
               StringEquals:
                 token.actions.githubusercontent.com:aud: sts.amazonaws.com
-              StringLike:
-                # Make sure this matches your GitHub user/org and repo name
-                token.actions.githubusercontent.com:sub: repo:${GitHubRepository}:*
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/AdministratorAccess
-      # Keep any other policies you had previously
+      Policies:
+        - PolicyName: GitHubActionsDeployPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # Full S3 Permissions
+              - Sid: FullS3Access
+                Effect: Allow
+                Action:
+                  - s3:*
+                Resource:
+                  - arn:aws:s3:::*
+                  - arn:aws:s3:::*/*
+
+              # Full IAM Permissions
+              - Sid: FullIAMAccess
+                Effect: Allow
+                Action:
+                  - iam:*
+                Resource: '*'
+
+              # Full Lambda Permissions
+              - Sid: FullLambdaAccess
+                Effect: Allow
+                Action:
+                  - lambda:*
+                Resource: '*'
+
+              # Full Glue Permissions
+              - Sid: FullGlueAccess
+                Effect: Allow
+                Action:
+                  - glue:*
+                Resource: '*'
+
+              # Full EC2 Permissions
+              - Sid: FullEC2Access
+                Effect: Allow
+                Action:
+                  - ec2:*
+                Resource: '*'
+
+              # Full VPC Permissions
+              - Sid: FullVPCAccess
+                Effect: Allow
+                Action:
+                  - ec2:*
+                  - vpc:*
+                Resource: '*'
+
+              # Full ECR Permissions
+              - Sid: FullECRAccess
+                Effect: Allow
+                Action:
+                  - ecr:*
+                Resource: '*'
+
+              # Full CloudWatch Permissions
+              - Sid: FullCloudWatchAccess
+                Effect: Allow
+                Action:
+                  - events:*
+                  - logs:*
+                  - cloudwatch:*
+                Resource: '*'
+
+              # Full KMS Permissions
+              - Sid: FullKMSAccess
+                Effect: Allow
+                Action:
+                  - kms:*
+                Resource: '*'
+
+              # Full EventBridge Permissions
+              - Sid: FullEventBridgeAccess
+                Effect: Allow
+                Action:
+                  - events:*
+                Resource: '*'
+
+              # Global Read Permissions
+              - Sid: GlobalReadPermissions
+                Effect: Allow
+                Action:
+                  - sts:GetCallerIdentity
+                  - iam:GetAccountSummary
+                  - iam:ListAccountAliases
+                  - ec2:DescribeAccountAttributes
+                  - ec2:DescribeAvailabilityZones
+                  - ec2:DescribeRegions
+                Resource: '*'
+
+  GitHubActionsOidcProvider:
+    Type: AWS::IAM::OIDCProvider
+    Properties:
+      ClientIdList:
+        - sts.amazonaws.com
+      ThumbprintList:
+        - 6938fd4d98bab03faadb97b34396831e3780aea1
+        - 1c58a3a8518e8759bf075b76b750d4f2df264fcd
+      Url: https://token.actions.githubusercontent.com
