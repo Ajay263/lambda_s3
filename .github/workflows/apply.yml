@@ -12,10 +12,10 @@ on:
           - apply
           - destroy
           - apply-with-lambda
-
 permissions:
   contents: read
   id-token: write
+  actions: write 
 
 jobs:
   terraform:
