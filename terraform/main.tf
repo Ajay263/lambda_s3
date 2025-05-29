@@ -8,13 +8,12 @@ terraform {
   }
   backend "s3" {
     bucket       = "gamepulse-tf-backend-resources"
-    key          = "lambda-api-extractor/terraform.tfstate"
+    key          = "terraform.tfstate"
     region       = "us-east-1"
     encrypt      = true
     use_lockfile = true
   }
 }
-
 provider "aws" {
   region = var.region
 }
