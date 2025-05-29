@@ -1,7 +1,7 @@
 variable "bucket_name" {
   type        = string
   description = "S3 bucket name for storing API data"
-  default     = "movie-api-data-daily"
+  default     = "movie-api-data-daily263"
 }
 
 variable "lambda_ecr_repo" {
