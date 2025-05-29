@@ -24,6 +24,10 @@ provider "aws" {
   region = "us-east-1"
 }
 
+locals {
+  lambda_image_exists = false
+}
+
 # S3 Bucket for storing API data
 resource "aws_s3_bucket" "movie_bucket" {
   provider = aws.us-east-1
@@ -103,7 +107,7 @@ resource "aws_iam_role_policy" "lambda_policy" {
 
 # Lambda Function - Only created when image exists
 resource "aws_lambda_function" "movie_api_lambda" {
-  count         = var.lambda_image_exists ? 1 : 0
+  count         = local.lambda_image_exists ? 1 : 0
   function_name = var.lambda_function_name
   role          = aws_iam_role.lambda_iam_role.arn
 
@@ -123,7 +127,7 @@ resource "aws_lambda_function" "movie_api_lambda" {
 
 # EventBridge Rule - Only created when Lambda exists
 resource "aws_cloudwatch_event_rule" "event_rule" {
-  count               = var.lambda_image_exists ? 1 : 0
+  count               = local.lambda_image_exists ? 1 : 0
   name                = var.eventbridge_rule
   description         = "Trigger Lambda daily"
   schedule_expression = "rate(1 day)"
@@ -131,7 +135,7 @@ resource "aws_cloudwatch_event_rule" "event_rule" {
 
 # EventBridge Target - Only created when Lambda exists
 resource "aws_cloudwatch_event_target" "lambda_target" {
-  count     = var.lambda_image_exists ? 1 : 0
+  count     = local.lambda_image_exists ? 1 : 0
   rule      = aws_cloudwatch_event_rule.event_rule[0].name
   target_id = "TriggerLambdaTarget"
   arn       = aws_lambda_function.movie_api_lambda[0].arn
@@ -139,7 +143,7 @@ resource "aws_cloudwatch_event_target" "lambda_target" {
 
 # Lambda Permission for EventBridge - Only created when Lambda exists
 resource "aws_lambda_permission" "allow_eventbridge" {
-  count         = var.lambda_image_exists ? 1 : 0
+  count         = local.lambda_image_exists ? 1 : 0
   statement_id  = "AllowExecutionFromEventBridge"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.movie_api_lambda[0].function_name
