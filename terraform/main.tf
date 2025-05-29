@@ -32,7 +32,7 @@ resource "aws_s3_bucket_versioning" "movie_bucket_versioning" {
 # ECR Repository
 resource "aws_ecr_repository" "ecr_repo" {
   name = var.lambda_ecr_repo
-  
+
   image_scanning_configuration {
     scan_on_push = true
   }
@@ -41,7 +41,7 @@ resource "aws_ecr_repository" "ecr_repo" {
 # IAM Role for Lambda
 resource "aws_iam_role" "lambda_iam_role" {
   name = var.lambda_iam_role_name
-  
+
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -96,19 +96,19 @@ resource "aws_iam_role_policy" "lambda_policy" {
 # Lambda Function
 resource "aws_lambda_function" "movie_api_lambda" {
   function_name = var.lambda_function_name
-  role         = aws_iam_role.lambda_iam_role.arn
-  
+  role          = aws_iam_role.lambda_iam_role.arn
+
   package_type = "Image"
   image_uri    = "${aws_ecr_repository.ecr_repo.repository_url}:latest"
-  
+
   timeout = 60
-  
+
   environment {
     variables = {
       BUCKET_NAME = aws_s3_bucket.movie_bucket.id
     }
   }
-  
+
   depends_on = [aws_ecr_repository.ecr_repo]
 }
 
