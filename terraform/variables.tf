@@ -1,7 +1,19 @@
-variable "bucket_name" {
+variable "raw_bucket_name" {
   type        = string
-  description = "S3 bucket name for storing API data"
-  default     = "movie-api-data-daily263-new"
+  description = "S3 bucket name for storing raw data"
+  default     = "oakvale-raw-data"
+}
+
+variable "lakehouse_bucket_name" {
+  type        = string
+  description = "S3 bucket name for storing lakehouse data"
+  default     = "oakvale-lakehouse-data"
+}
+
+variable "glue_bucket_name" {
+  type        = string
+  description = "S3 bucket name for storing Glue scripts and assets"
+  default     = "oakvale-glue-assets"
 }
 
 variable "lambda_ecr_repo" {
