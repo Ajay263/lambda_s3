@@ -25,7 +25,7 @@ provider "aws" {
 }
 
 locals {
-  lambda_image_exists = false
+  lambda_image_exists = var.lambda_image_exists
 }
 
 # S3 Bucket for storing API data
