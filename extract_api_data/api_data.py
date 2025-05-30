@@ -1,9 +1,10 @@
 import logging
-import requests
 import boto3
 import os
 import datetime
 import json
+from faker import Faker
+import random
 
 # Configure logging
 logging.basicConfig(
@@ -12,28 +13,72 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def extract_api_data(url: str, headers: dict) -> dict:
-    """Extract data from API endpoint"""
-    try:
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()  # Raises an HTTPError for bad responses
-        
-        if response.status_code == 200:
-            data = response.json().get('results', [])
-            logger.info(f'Successfully extracted {len(data)} records from API')
-            return data
-        else:
-            logger.error(f'API returned status code: {response.status_code}')
-            return []
-            
-    except requests.exceptions.RequestException as e:
-        logger.error(f'Error while extracting data from the API: {e}')
-        return []
-    except Exception as e:
-        logger.error(f'Unexpected error: {e}')
-        return []
 
-def upload_to_s3(bucket_name: str, key: str, data: dict) -> bool:
+def generate_movie_data(n: int, fake: Faker) -> list:
+    """Generate fake movie data"""
+    
+    studios = [
+        'Warner Bros.',
+        'Universal Pictures',
+        'Paramount Pictures',
+        'Walt Disney Pictures',
+        'Sony Pictures',
+        '20th Century Studios',
+        'Lionsgate Films',
+        'Metro-Goldwyn-Mayer',
+        'New Line Cinema',
+        'DreamWorks Pictures',
+        'A24',
+        'Focus Features',
+        'Miramax Films',
+        'Amblin Entertainment',
+        'Blumhouse Productions',
+    ]
+    
+    genres = [
+        'Action',
+        'Adventure',
+        'Comedy',
+        'Drama',
+        'Horror',
+        'Thriller',
+        'Sci-Fi',
+        'Fantasy',
+        'Romance',
+        'Animation',
+        'Documentary',
+        'Crime',
+        'Mystery',
+        'Family',
+        'Musical',
+    ]
+    
+    movies = []
+    for _ in range(n):
+        movie = {
+            "id": fake.uuid4(),
+            "title": fake.catch_phrase(),
+            "studio": random.choice(studios),
+            "rating": fake.random_element(elements=('G', 'PG', 'PG-13', 'R', 'NC-17')),
+            "genre": random.choice(genres),
+            "runtime": random.randint(80, 210),
+            "release_date": fake.date_between(start_date='-10y', end_date='today').isoformat(),
+            "budget": float(random.randint(1000000, 250000000)),
+            "box_office": float(random.randint(500000, 500000000)),
+            "director": fake.name(),
+            "popularity": round(random.uniform(1, 10), 1),
+            "vote_average": round(random.uniform(1, 10), 1),
+            "vote_count": random.randint(10, 50000),
+            "overview": fake.paragraph(nb_sentences=5),
+            "adult": random.choice([True, False]),
+            "original_language": fake.language_code(),
+        }
+        movies.append(movie)
+    
+    return movies
+
+
+def upload_to_s3(bucket_name: str, key: str, data: list) -> bool:
     """Upload data to S3 bucket"""
     try:
         data_string = json.dumps(data, indent=2, default=str)
@@ -48,55 +93,43 @@ def upload_to_s3(bucket_name: str, key: str, data: dict) -> bool:
         logger.error(f'Error uploading to S3: {e}')
         return False
 
+
 def lambda_handler(event, context):
     """Main Lambda handler function"""
     try:
         # Get environment variables
-        authorization = os.environ.get('Authorization')
-        bucket_name = os.environ.get('BUCKET_NAME', 'movie-api-data-daily')
+        bucket_name = os.environ.get('BUCKET_NAME', 'oakvale-raw-data')
+        num_movies = int(os.environ.get('NUM_MOVIES', '100'))
         
-        if not authorization:
-            logger.error('Authorization token not found in environment variables')
+        fake = Faker()
+        
+        # Generate movie data
+        logger.info(f'Generating {num_movies} fake movie records...')
+        movies = generate_movie_data(num_movies, fake)
+        
+        if not movies:
+            logger.error('No movie data generated')
             return {
                 'statusCode': 500,
-                'body': json.dumps('Authorization token missing')
+                'body': json.dumps('No movie data generated')
             }
         
-        # API configuration
-        url = (
-            'https://api.themoviedb.org/3/discover/movie?include_adult='
-            'false&include_video=false&language=en-US&page=1&sort_by=popularity.desc'
-        )
-        headers = {
-            "accept": "application/json", 
-            "Authorization": authorization
-        }
-        
-        # Generate S3 key with current date
-        today_date = datetime.date.today().strftime("%Y-%m-%d")
-        key = f"api_data/{today_date}/movies.json"
-        
-        # Extract data from API
-        logger.info('Starting API data extraction...')
-        data = extract_api_data(url, headers)
-        
-        if not data:
-            logger.error('No data extracted from API')
-            return {
-                'statusCode': 500,
-                'body': json.dumps('No data extracted from API')
-            }
+        # Generate S3 key with current date and hour
+        today = datetime.datetime.now()
+        date_str = today.strftime("%Y-%m-%d")
+        datetime_str = today.strftime("%Y-%m-%d_%H")
+        key = f"Movies/{date_str}/movies_{datetime_str}.json"
         
         # Upload to S3
-        logger.info(f'Uploading {len(data)} records to S3...')
-        upload_success = upload_to_s3(bucket_name, key, data)
+        logger.info(f'Uploading {len(movies)} records to S3...')
+        upload_success = upload_to_s3(bucket_name, key, movies)
         
         if upload_success:
             return {
                 'statusCode': 200,
                 'body': json.dumps({
-                    'message': 'Data extraction and upload completed successfully',
-                    'records_processed': len(data),
+                    'message': 'Data generation and upload completed successfully',
+                    'records_processed': len(movies),
                     's3_location': f's3://{bucket_name}/{key}'
                 })
             }
