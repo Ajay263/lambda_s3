@@ -35,13 +35,13 @@ resource "aws_s3_object" "gold_folder" {
 resource "aws_s3_object" "delta_jar_core" {
   bucket = aws_s3_bucket.oakvale_lakehouse_bucket.id
   key    = "delta_jar/delta-core_2.12-2.1.0.jar"
-  source = "../delta_jar/delta-core_2.12-2.1.0.jar"
+  source = "delta_jar/delta-core_2.12-2.1.0.jar"
 }
 
 resource "aws_s3_object" "delta_jar_storage" {
   bucket = aws_s3_bucket.oakvale_lakehouse_bucket.id
   key    = "delta_jar/delta-storage-2.1.0.jar"
-  source = "../delta_jar/delta-storage-2.1.0.jar"
+  source = "delta_jar/delta-storage-2.1.0.jar"
 }
 
 # S3 bucket for Glue scripts
@@ -97,7 +97,7 @@ resource "aws_lambda_function" "movie_data_generator" {
   memory_size   = 256
   
   # Assuming the code is packaged as a zip file
-  filename      = "../lambda_package.zip"
+  filename      = "lambda_package.zip"
   
   environment {
     variables = {

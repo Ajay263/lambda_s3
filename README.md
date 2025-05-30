@@ -40,35 +40,51 @@ The data lakehouse architecture consists of:
 │   ├── bronze_glue_script.py # ETL script for bronze layer
 │   ├── silver_glue_script.py # ETL script for silver layer
 │   └── gold_glue_script.py   # ETL script for gold layer
+├── delta_jar/
+│   ├── delta-core_2.12-2.1.0.jar  # Delta Lake core JAR
+│   └── delta-storage-2.1.0.jar    # Delta Lake storage JAR
 ├── main.tf                  # Main Terraform configuration
 ├── variables.tf             # Terraform variables
-└── glue_jobs.tf             # Glue jobs configuration
+├── glue_jobs.tf             # Glue jobs configuration
+├── download_delta_jars.ps1  # PowerShell script to download Delta JARs
+└── download_delta_jars.sh   # Shell script to download Delta JARs
 ```
 
 ## Deployment
 
 1. Ensure you have AWS credentials configured
 2. Install Terraform
-3. Create a directory for Delta jar files:
-   ```
-   mkdir -p ../delta_jar
-   ```
-4. Download required Delta Lake jar files:
-   ```
-   curl -L -o ../delta_jar/delta-core_2.12-2.1.0.jar https://repo1.maven.org/maven2/io/delta/delta-core_2.12/2.1.0/delta-core_2.12-2.1.0.jar
-   curl -L -o ../delta_jar/delta-storage-2.1.0.jar https://repo1.maven.org/maven2/io/delta/delta-storage/2.1.0/delta-storage-2.1.0.jar
-   ```
-5. Package Lambda function:
+3. Download the required Delta jar files using the provided scripts:
+   - For Windows:
+     ```
+     .\download_delta_jars.ps1
+     ```
+   - For Linux/Mac:
+     ```
+     chmod +x download_delta_jars.sh
+     ./download_delta_jars.sh
+     ```
+4. Package Lambda function:
    ```
    pip install faker boto3 -t ./lambda_package
    cp extract_api_data/api_data.py ./lambda_package/
    cd lambda_package && zip -r ../lambda_package.zip . && cd ..
    ```
-6. Initialize and apply Terraform:
+5. Initialize and apply Terraform:
    ```
    terraform init
    terraform apply
    ```
+
+## Glue Jobs Configuration
+
+The project uses a dynamic approach to define Glue jobs using Terraform's `for_each` functionality. This makes it easy to maintain and update the jobs as needed. The configuration includes:
+
+- Job parameters like worker type, timeout, and retry settings
+- Default arguments including paths for source and destination data
+- Integration with Delta Lake via JAR files
+- Auto-scaling capabilities for efficient resource usage
+- Workflow orchestration with conditional triggers
 
 ## Data Flow
 
