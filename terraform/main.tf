@@ -73,6 +73,11 @@ resource "aws_ecr_repository" "ecr_repo" {
   image_scanning_configuration {
     scan_on_push = true
   }
+
+  lifecycle {
+    ignore_changes        = [name]
+    create_before_destroy = true
+  }
 }
 
 # IAM Role for Lambda
@@ -91,6 +96,11 @@ resource "aws_iam_role" "lambda_iam_role" {
       }
     ]
   })
+
+  lifecycle {
+    ignore_changes        = [name]
+    create_before_destroy = true
+  }
 }
 
 # IAM Role for Glue
