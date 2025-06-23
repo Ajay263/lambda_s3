@@ -9,9 +9,10 @@ on:
         default: 'apply'
         type: choice
         options:
-          - apply
+          - apply-ecr-only
+          - apply-full
           - destroy
-          - apply-with-lambda
+
 permissions:
   contents: read
   id-token: write
@@ -61,20 +62,23 @@ jobs:
       - name: Terraform Validate
         run: terraform validate
 
-      - name: Terraform Plan - Initial Infrastructure
-        if: github.event.inputs.action == 'apply'
-        run: terraform plan -input=false -out=tfplan -var="lambda_image_exists=false"
+      - name: Terraform Plan - ECR Only
+        if: github.event.inputs.action == 'apply-ecr-only'
+        run: |
+          terraform plan -input=false -out=tfplan \
+          -target=aws_ecr_repository.weather_historical_ecr \
+          -target=aws_ecr_repository.weather_hourly_ecr
 
-      - name: Terraform Apply - Initial Infrastructure
-        if: github.event.inputs.action == 'apply'
+      - name: Terraform Apply - ECR Only
+        if: github.event.inputs.action == 'apply-ecr-only'
         run: terraform apply -input=false -auto-approve tfplan
 
-      - name: Terraform Plan - With Lambda
-        if: github.event.inputs.action == 'apply-with-lambda'
-        run: terraform plan -input=false -out=tfplan -var="lambda_image_exists=true"
+      - name: Terraform Plan - Full
+        if: github.event.inputs.action == 'apply-full'
+        run: terraform plan -input=false -out=tfplan
 
-      - name: Terraform Apply - With Lambda
-        if: github.event.inputs.action == 'apply-with-lambda'
+      - name: Terraform Apply - Full
+        if: github.event.inputs.action == 'apply-full'
         run: terraform apply -input=false -auto-approve tfplan
 
       - name: Terraform Plan - Destroy
