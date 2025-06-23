@@ -480,9 +480,9 @@ resource "aws_ecr_repository" "weather_hourly_ecr" {
 # Historical Weather Lambda Function (Container)
 resource "aws_lambda_function" "historical_weather_lambda" {
   function_name = "historical_weather_collector"
-  role         = aws_iam_role.weather_lambda_role.arn
-  timeout      = 300
-  memory_size  = 256
+  role          = aws_iam_role.weather_lambda_role.arn
+  timeout       = 300
+  memory_size   = 256
 
   package_type = "Image"
   image_uri    = "${aws_ecr_repository.weather_historical_ecr.repository_url}:latest"
@@ -497,9 +497,9 @@ resource "aws_lambda_function" "historical_weather_lambda" {
 # Hourly Weather Lambda Function (Container)
 resource "aws_lambda_function" "hourly_weather_lambda" {
   function_name = "hourly_weather_collector"
-  role         = aws_iam_role.weather_lambda_role.arn
-  timeout      = 60
-  memory_size  = 128
+  role          = aws_iam_role.weather_lambda_role.arn
+  timeout       = 60
+  memory_size   = 128
 
   package_type = "Image"
   image_uri    = "${aws_ecr_repository.weather_hourly_ecr.repository_url}:latest"
