@@ -393,3 +393,141 @@ resource "aws_glue_trigger" "gold_trigger" {
     job_name = aws_glue_job.etl_jobs["gold"].name
   }
 }
+
+# S3 Bucket for weather data
+resource "aws_s3_bucket" "weather_data_bucket" {
+  provider = aws.us-east-1
+  bucket   = "${var.raw_bucket_name}-weather"
+}
+
+resource "aws_s3_bucket_versioning" "weather_data_bucket_versioning" {
+  bucket = aws_s3_bucket.weather_data_bucket.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+# Lambda IAM Role for Weather Data Collection
+resource "aws_iam_role" "weather_lambda_role" {
+  name = "weather_data_lambda_role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+# IAM Policy for Weather Lambda
+resource "aws_iam_role_policy" "weather_lambda_policy" {
+  name = "weather_lambda_policy"
+  role = aws_iam_role.weather_lambda_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ]
+        Resource = "arn:aws:logs:*:*:*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:PutObject",
+          "s3:GetObject",
+          "s3:ListBucket"
+        ]
+        Resource = [
+          "${aws_s3_bucket.weather_data_bucket.arn}",
+          "${aws_s3_bucket.weather_data_bucket.arn}/*"
+        ]
+      }
+    ]
+  })
+}
+
+# ECR Repositories for Weather Collectors
+resource "aws_ecr_repository" "weather_historical_ecr" {
+  name         = "weather-historical-collector"
+  force_delete = true
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+}
+
+resource "aws_ecr_repository" "weather_hourly_ecr" {
+  name         = "weather-hourly-collector"
+  force_delete = true
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+}
+
+# Historical Weather Lambda Function (Container)
+resource "aws_lambda_function" "historical_weather_lambda" {
+  function_name = "historical_weather_collector"
+  role         = aws_iam_role.weather_lambda_role.arn
+  timeout      = 300
+  memory_size  = 256
+
+  package_type = "Image"
+  image_uri    = "${aws_ecr_repository.weather_historical_ecr.repository_url}:latest"
+
+  environment {
+    variables = {
+      WEATHER_BUCKET = aws_s3_bucket.weather_data_bucket.id
+    }
+  }
+}
+
+# Hourly Weather Lambda Function (Container)
+resource "aws_lambda_function" "hourly_weather_lambda" {
+  function_name = "hourly_weather_collector"
+  role         = aws_iam_role.weather_lambda_role.arn
+  timeout      = 60
+  memory_size  = 128
+
+  package_type = "Image"
+  image_uri    = "${aws_ecr_repository.weather_hourly_ecr.repository_url}:latest"
+
+  environment {
+    variables = {
+      WEATHER_BUCKET = aws_s3_bucket.weather_data_bucket.id
+    }
+  }
+}
+
+# EventBridge Rule for Hourly Updates
+resource "aws_cloudwatch_event_rule" "hourly_weather_rule" {
+  name                = "hourly-weather-collection"
+  description         = "Trigger weather data collection every hour"
+  schedule_expression = "rate(1 hour)"
+}
+
+resource "aws_cloudwatch_event_target" "hourly_weather_target" {
+  rule      = aws_cloudwatch_event_rule.hourly_weather_rule.name
+  target_id = "WeatherLambdaTarget"
+  arn       = aws_lambda_function.hourly_weather_lambda.arn
+}
+
+resource "aws_lambda_permission" "allow_eventbridge_hourly" {
+  statement_id  = "AllowEventBridgeInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.hourly_weather_lambda.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.hourly_weather_rule.arn
+}

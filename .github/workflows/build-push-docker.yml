@@ -1,10 +1,10 @@
-name: Build and Push Docker Image to ECR
+name: Build and Push Docker Images to ECR
 
 on:
   workflow_dispatch:  # Manual trigger
   push:
     paths:
-      - 'extract_api_data/**'  # Only trigger when changes to Lambda code
+      - 'weather_data_collectors/**'  # Only trigger when changes to weather collectors
     branches:
       - main
 
@@ -15,9 +15,12 @@ permissions:
 
 jobs:
   build-and-push:
-    name: Build and Push Docker Image
+    name: Build and Push Docker Images
     runs-on: ubuntu-latest
     environment: production
+    strategy:
+      matrix:
+        collector: ['historical', 'hourly']
     
     steps:
       - name: Checkout code
@@ -37,10 +40,11 @@ jobs:
       - name: Build, tag, and push image to Amazon ECR
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: ecr-repo-lambda
+          ECR_REPOSITORY: weather-${{ matrix.collector }}-collector
           IMAGE_TAG: latest
         run: |
-          cd extract_api_data
+          cd weather_data_collectors/${{ matrix.collector }}
+          cp ../requirements.txt .
           
           # Build the Docker image
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
@@ -51,6 +55,7 @@ jobs:
           echo "Image pushed to $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
       
       - name: Trigger Apply with Lambda workflow
+        if: matrix.collector == 'hourly'  # Only trigger once after both images are pushed
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
