@@ -526,9 +526,6 @@ resource "aws_lambda_function" "hourly_weather_lambda" {
       aws_ecr_repository.weather_hourly_ecr
     ]
   }
-
-  # Add a timestamp to force updates
-  source_code_hash = timestamp()
 }
 
 # EventBridge Rule for Hourly Updates
