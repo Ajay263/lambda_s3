@@ -1,0 +1,55 @@
+name: Build and Push Weather Collectors
+
+on:
+  workflow_dispatch:  # Manual trigger
+  push:
+    paths:
+      - 'weather_data_collectors/**'
+    branches:
+      - main
+
+permissions:
+  contents: read
+  id-token: write
+  actions: write 
+
+jobs:
+  build-and-push:
+    name: Build and Push Weather Collectors
+    runs-on: ubuntu-latest
+    environment: production
+    strategy:
+      matrix:
+        collector: ['historical', 'hourly']
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.ROLE_TO_ASSUME }}
+          aws-region: us-east-1
+          role-session-name: GitHubActions
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: weather-${{ matrix.collector }}-collector
+          IMAGE_TAG: latest
+        run: |
+          cd weather_data_collectors/${{ matrix.collector }}
+          cp ../requirements.txt .
+          
+          # Build the Docker image
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          
+          # Push the Docker image
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          
+          echo "Image pushed to $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" 

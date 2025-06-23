@@ -492,6 +492,11 @@ resource "aws_lambda_function" "historical_weather_lambda" {
       WEATHER_BUCKET = aws_s3_bucket.weather_data_bucket.id
     }
   }
+
+  depends_on = [
+    aws_ecr_repository.weather_historical_ecr,
+    aws_iam_role_policy.weather_lambda_policy
+  ]
 }
 
 # Hourly Weather Lambda Function (Container)
@@ -509,6 +514,11 @@ resource "aws_lambda_function" "hourly_weather_lambda" {
       WEATHER_BUCKET = aws_s3_bucket.weather_data_bucket.id
     }
   }
+
+  depends_on = [
+    aws_ecr_repository.weather_hourly_ecr,
+    aws_iam_role_policy.weather_lambda_policy
+  ]
 }
 
 # EventBridge Rule for Hourly Updates
