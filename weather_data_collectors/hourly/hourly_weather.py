@@ -7,6 +7,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 import logging
 import os
 from dateutil import parser
+import pytz
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -24,6 +25,9 @@ class HourlyWeatherCollector:
         self.latitude = -25.4753
         self.longitude = 30.9698
         self.location_name = "Nelspruit, Mpumalanga, South Africa"
+        
+        # Set timezone
+        self.timezone = pytz.timezone('Africa/Johannesburg')
         
         # API parameters
         self.hourly_params = [
@@ -48,15 +52,20 @@ class HourlyWeatherCollector:
             params = {
                 'latitude': self.latitude,
                 'longitude': self.longitude,
-                'hourly': self.hourly_params,
+                'hourly': ','.join(self.hourly_params),
                 'timezone': 'Africa/Johannesburg',
-                'forecast_days': 1
+                'forecast_days': 1,
+                'past_days': 1  # Include past day to ensure we have current data
             }
             
+            logger.info(f"Requesting weather data with params: {params}")
             response = requests.get(self.api_base_url, params=params, timeout=30)
             response.raise_for_status()
             
-            return response.json()
+            data = response.json()
+            logger.info(f"API response received with {len(data.get('hourly', {}).get('time', []))} time points")
+            
+            return data
             
         except requests.exceptions.RequestException as e:
             logger.error(f"API request failed: {str(e)}")
@@ -65,20 +74,59 @@ class HourlyWeatherCollector:
     def process_current_weather(self, raw_data: Dict) -> Optional[Dict]:
         """Process current hour's weather data"""
         if not raw_data or 'hourly' not in raw_data:
+            logger.error("No hourly data in API response")
             return None
 
         hourly = raw_data['hourly']
-        api_times = [parser.isoparse(t) for t in hourly['time']]
-        now = datetime.now().replace(minute=0, second=0, microsecond=0)
-
-        # Find the latest time in the past or now
-        available_times = [t for t in api_times if t <= now]
-        if not available_times:
-            logger.error("No available times in API response")
+        
+        if 'time' not in hourly or not hourly['time']:
+            logger.error("No time data in hourly response")
+            return None
+            
+        # Parse API times
+        try:
+            api_times = [parser.isoparse(t) for t in hourly['time']]
+            logger.info(f"API times range: {api_times[0]} to {api_times[-1]}")
+        except Exception as e:
+            logger.error(f"Failed to parse API times: {e}")
             return None
 
-        closest_time = max(available_times)
-        closest_index = api_times.index(closest_time)
+        # Get current time in South Africa timezone
+        now_utc = datetime.utcnow().replace(tzinfo=pytz.UTC)
+        now_local = now_utc.astimezone(self.timezone)
+        current_hour = now_local.replace(minute=0, second=0, microsecond=0)
+        
+        logger.info(f"Current local time: {now_local}")
+        logger.info(f"Looking for data at: {current_hour}")
+
+        # Find the closest available time (prefer current or most recent past hour)
+        closest_time = None
+        closest_index = None
+        min_diff = None
+        
+        for i, api_time in enumerate(api_times):
+            # Convert API time to local timezone for comparison
+            api_time_local = api_time.astimezone(self.timezone)
+            time_diff = abs((current_hour - api_time_local).total_seconds())
+            
+            # Prefer times that are at or before current time
+            if api_time_local <= current_hour:
+                if min_diff is None or time_diff < min_diff:
+                    min_diff = time_diff
+                    closest_time = api_time_local
+                    closest_index = i
+            # If no past times found, use future time as fallback
+            elif closest_time is None:
+                if min_diff is None or time_diff < min_diff:
+                    min_diff = time_diff
+                    closest_time = api_time_local
+                    closest_index = i
+
+        if closest_index is None:
+            logger.error("No suitable time found in API response")
+            return None
+
+        logger.info(f"Using data from: {closest_time} (index {closest_index})")
 
         # Create weather data point
         weather_data = {
@@ -94,15 +142,19 @@ class HourlyWeatherCollector:
             'metadata': {
                 'data_source': 'open_meteo_current',
                 'api_version': 'v1',
-                'collected_at': datetime.utcnow().isoformat()
+                'collected_at': datetime.utcnow().isoformat(),
+                'local_timezone': 'Africa/Johannesburg'
             }
         }
 
         # Add all weather parameters
         for param in self.hourly_params:
-            if param in hourly:
-                weather_data['weather'][param] = hourly[param][closest_index]
+            if param in hourly and len(hourly[param]) > closest_index:
+                value = hourly[param][closest_index]
+                weather_data['weather'][param] = value
+                logger.debug(f"Added {param}: {value}")
 
+        logger.info(f"Weather data processed successfully for {closest_time}")
         return weather_data
     
     def save_to_s3(self, data: Dict) -> bool:
@@ -113,11 +165,14 @@ class HourlyWeatherCollector:
                 return False
             
             # Extract timestamp components
-            timestamp = datetime.fromisoformat(data['timestamp'])
-            year = timestamp.year
-            month = timestamp.month
-            day = timestamp.day
-            hour = timestamp.hour
+            timestamp = datetime.fromisoformat(data['timestamp'].replace('Z', '+00:00'))
+            # Convert to local timezone for partitioning
+            timestamp_local = timestamp.astimezone(self.timezone)
+            
+            year = timestamp_local.year
+            month = timestamp_local.month
+            day = timestamp_local.day
+            hour = timestamp_local.hour
             
             # Create S3 key with time-based partitioning
             s3_key = f"current/year={year}/month={month:02d}/day={day:02d}/hour={hour:02d}/weather_data.json"
@@ -150,6 +205,8 @@ class HourlyWeatherCollector:
         }
         
         try:
+            logger.info("Starting weather data collection...")
+            
             # Fetch current weather
             raw_data = self.fetch_current_weather()
             
@@ -165,6 +222,14 @@ class HourlyWeatherCollector:
                     'data_collected': True,
                     'weather_timestamp': processed_data['timestamp']
                 })
+                
+                if save_success:
+                    logger.info("Weather data collection completed successfully")
+                else:
+                    logger.error("Weather data collection failed during S3 save")
+            else:
+                logger.error("Failed to process weather data")
+                results['error'] = "Failed to process weather data"
             
             return results
             
@@ -184,6 +249,8 @@ def lambda_handler(event, context):
         s3_bucket = os.environ.get('WEATHER_BUCKET')
         if not s3_bucket:
             raise ValueError("WEATHER_BUCKET environment variable is required")
+        
+        logger.info(f"Starting weather collection for bucket: {s3_bucket}")
         
         # Create collector and run
         collector = HourlyWeatherCollector(s3_bucket)
@@ -205,4 +272,4 @@ def lambda_handler(event, context):
                 'message': 'Current weather data collection failed',
                 'error': str(e)
             })
-        } 
+        }
