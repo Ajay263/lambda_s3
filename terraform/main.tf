@@ -519,6 +519,16 @@ resource "aws_lambda_function" "hourly_weather_lambda" {
     aws_ecr_repository.weather_hourly_ecr,
     aws_iam_role_policy.weather_lambda_policy
   ]
+
+  # Force update when image changes
+  lifecycle {
+    replace_triggered_by = [
+      aws_ecr_repository.weather_hourly_ecr
+    ]
+  }
+
+  # Add a timestamp to force updates
+  source_code_hash = timestamp()
 }
 
 # EventBridge Rule for Hourly Updates
