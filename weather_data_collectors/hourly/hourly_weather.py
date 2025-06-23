@@ -6,6 +6,7 @@ from typing import Dict, Optional
 from tenacity import retry, stop_after_attempt, wait_exponential
 import logging
 import os
+from dateutil import parser
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -63,48 +64,46 @@ class HourlyWeatherCollector:
     
     def process_current_weather(self, raw_data: Dict) -> Optional[Dict]:
         """Process current hour's weather data"""
-        try:
-            if not raw_data or 'hourly' not in raw_data:
-                return None
-            
-            hourly = raw_data['hourly']
-            current_hour = datetime.now().replace(minute=0, second=0, microsecond=0)
-            
-            # Find index for current hour
-            try:
-                current_index = hourly['time'].index(current_hour.isoformat())
-            except ValueError:
-                logger.error("Current hour not found in API response")
-                return None
-            
-            # Create weather data point
-            weather_data = {
-                'timestamp': current_hour.isoformat(),
-                'date': current_hour.strftime('%Y-%m-%d'),
-                'hour': current_hour.hour,
-                'location': {
-                    'name': self.location_name,
-                    'latitude': self.latitude,
-                    'longitude': self.longitude
-                },
-                'weather': {},
-                'metadata': {
-                    'data_source': 'open_meteo_current',
-                    'api_version': 'v1',
-                    'collected_at': datetime.utcnow().isoformat()
-                }
-            }
-            
-            # Add all weather parameters
-            for param in self.hourly_params:
-                if param in hourly:
-                    weather_data['weather'][param] = hourly[param][current_index]
-            
-            return weather_data
-            
-        except Exception as e:
-            logger.error(f"Failed to process current weather: {str(e)}")
+        if not raw_data or 'hourly' not in raw_data:
             return None
+
+        hourly = raw_data['hourly']
+        api_times = [parser.isoparse(t) for t in hourly['time']]
+        now = datetime.now().replace(minute=0, second=0, microsecond=0)
+
+        # Find the latest time in the past or now
+        available_times = [t for t in api_times if t <= now]
+        if not available_times:
+            logger.error("No available times in API response")
+            return None
+
+        closest_time = max(available_times)
+        closest_index = api_times.index(closest_time)
+
+        # Create weather data point
+        weather_data = {
+            'timestamp': closest_time.isoformat(),
+            'date': closest_time.strftime('%Y-%m-%d'),
+            'hour': closest_time.hour,
+            'location': {
+                'name': self.location_name,
+                'latitude': self.latitude,
+                'longitude': self.longitude
+            },
+            'weather': {},
+            'metadata': {
+                'data_source': 'open_meteo_current',
+                'api_version': 'v1',
+                'collected_at': datetime.utcnow().isoformat()
+            }
+        }
+
+        # Add all weather parameters
+        for param in self.hourly_params:
+            if param in hourly:
+                weather_data['weather'][param] = hourly[param][closest_index]
+
+        return weather_data
     
     def save_to_s3(self, data: Dict) -> bool:
         """Save current weather data to S3"""
