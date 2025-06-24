@@ -19,96 +19,41 @@ Resources:
                 token.actions.githubusercontent.com:sub: repo:Ajay263/lambda_s3:*
               StringEquals:
                 token.actions.githubusercontent.com:aud: sts.amazonaws.com
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/AmazonS3FullAccess'
+        - 'arn:aws:iam::aws:policy/AmazonECR2FullAccess'
+        - 'arn:aws:iam::aws:policy/CloudWatchFullAccess'
+        - 'arn:aws:iam::aws:policy/AWSLambda_FullAccess'
       Policies:
-        - PolicyName: GitHubActionsDeployPolicy
+        - PolicyName: TerraformDeploymentPolicy
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
-              # Full S3 Permissions
-              - Sid: FullS3Access
-                Effect: Allow
+              - Effect: Allow
                 Action:
-                  - s3:*
-                Resource:
-                  - arn:aws:s3:::*
-                  - arn:aws:s3:::*/*
-
-              # Full IAM Permissions
-              - Sid: FullIAMAccess
-                Effect: Allow
+                  - 'dynamodb:CreateTable'
+                  - 'dynamodb:DeleteTable'
+                  - 'dynamodb:DescribeTable'
+                  - 'dynamodb:ListTables'
+                  - 'dynamodb:UpdateTable'
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:PutItem'
+                  - 'dynamodb:UpdateItem'
+                  - 'dynamodb:DeleteItem'
+                Resource: 'arn:aws:dynamodb:*:244920585605:table/*'
+              - Effect: Allow
                 Action:
-                  - iam:*
+                  - 's3:*'
                 Resource: '*'
-
-              # Full Lambda Permissions
-              - Sid: FullLambdaAccess
-                Effect: Allow
+              - Effect: Allow
                 Action:
-                  - lambda:*
-                Resource: '*'
-
-              # Full Glue Permissions
-              - Sid: FullGlueAccess
-                Effect: Allow
-                Action:
-                  - glue:*
-                Resource: '*'
-
-              # Full EC2 Permissions
-              - Sid: FullEC2Access
-                Effect: Allow
-                Action:
-                  - ec2:*
-                Resource: '*'
-
-              # Full VPC Permissions
-              - Sid: FullVPCAccess
-                Effect: Allow
-                Action:
-                  - ec2:*
-                  - vpc:*
-                Resource: '*'
-
-              # Full ECR Permissions
-              - Sid: FullECRAccess
-                Effect: Allow
-                Action:
-                  - ecr:*
-                Resource: '*'
-
-              # Full CloudWatch Permissions
-              - Sid: FullCloudWatchAccess
-                Effect: Allow
-                Action:
-                  - events:*
-                  - logs:*
-                  - cloudwatch:*
-                Resource: '*'
-
-              # Full KMS Permissions
-              - Sid: FullKMSAccess
-                Effect: Allow
-                Action:
-                  - kms:*
-                Resource: '*'
-
-              # Full EventBridge Permissions
-              - Sid: FullEventBridgeAccess
-                Effect: Allow
-                Action:
-                  - events:*
-                Resource: '*'
-
-              # Global Read Permissions
-              - Sid: GlobalReadPermissions
-                Effect: Allow
-                Action:
-                  - sts:GetCallerIdentity
-                  - iam:GetAccountSummary
-                  - iam:ListAccountAliases
-                  - ec2:DescribeAccountAttributes
-                  - ec2:DescribeAvailabilityZones
-                  - ec2:DescribeRegions
+                  - 'iam:CreateRole'
+                  - 'iam:DeleteRole'
+                  - 'iam:GetRole'
+                  - 'iam:PutRolePolicy'
+                  - 'iam:DeleteRolePolicy'
+                  - 'iam:AttachRolePolicy'
+                  - 'iam:DetachRolePolicy'
                 Resource: '*'
 
   GitHubActionsOidcProvider:

@@ -30,18 +30,21 @@ locals {
 
 # S3 Buckets for Oakvale data lakehouse
 resource "aws_s3_bucket" "oakvale_raw_bucket" {
-  provider = aws.us-east-1
-  bucket   = var.raw_bucket_name
+  provider      = aws.us-east-1
+  bucket        = var.raw_bucket_name
+  force_destroy = true
 }
 
 resource "aws_s3_bucket" "oakvale_lakehouse_bucket" {
-  provider = aws.us-east-1
-  bucket   = var.lakehouse_bucket_name
+  provider      = aws.us-east-1
+  bucket        = var.lakehouse_bucket_name
+  force_destroy = true
 }
 
 resource "aws_s3_bucket" "oakvale_lakehouse_glue_bucket" {
-  provider = aws.us-east-1
-  bucket   = var.glue_bucket_name
+  provider      = aws.us-east-1
+  bucket        = var.glue_bucket_name
+  force_destroy = true
 }
 
 resource "aws_s3_bucket_versioning" "oakvale_raw_bucket_versioning" {
