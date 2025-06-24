@@ -64,10 +64,12 @@ jobs:
 
       - name: Terraform Plan - ECR Only
         if: github.event.inputs.action == 'apply-ecr-only'
+        env:
+          TF_VAR_adzuna_app_id: ${{ secrets.ADZUNA_APP_ID }}
+          TF_VAR_adzuna_app_key: ${{ secrets.ADZUNA_APP_KEY }}
         run: |
           terraform plan -input=false -out=tfplan \
-          -target=aws_ecr_repository.weather_historical_ecr \
-          -target=aws_ecr_repository.weather_hourly_ecr
+          -target=aws_ecr_repository.ecr_repo
 
       - name: Terraform Apply - ECR Only
         if: github.event.inputs.action == 'apply-ecr-only'
