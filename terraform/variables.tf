@@ -51,3 +51,13 @@ variable "lambda_image_exists" {
   description = "Flag to indicate if the Lambda Docker image has been pushed to ECR"
   default     = false
 }
+
+variable "adzuna_app_id" {
+  type        = string
+  description = "Adzuna API app ID for job extraction"
+}
+
+variable "adzuna_app_key" {
+  type        = string
+  description = "Adzuna API app key for job extraction"
+}

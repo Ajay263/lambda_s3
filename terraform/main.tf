@@ -394,22 +394,25 @@ resource "aws_glue_trigger" "gold_trigger" {
   }
 }
 
-# S3 Bucket for weather data
-resource "aws_s3_bucket" "weather_data_bucket" {
-  provider = aws.us-east-1
-  bucket   = "${var.raw_bucket_name}-weather"
-}
+resource "aws_dynamodb_table" "adzuna_pipeline_state" {
+  name         = "adzuna-pipeline-state"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "state_id"
 
-resource "aws_s3_bucket_versioning" "weather_data_bucket_versioning" {
-  bucket = aws_s3_bucket.weather_data_bucket.id
-  versioning_configuration {
-    status = "Enabled"
+  attribute {
+    name = "state_id"
+    type = "S"
+  }
+
+  tags = {
+    Environment = "production"
+    Project     = "AdzunaJobPipeline"
   }
 }
 
-# Lambda IAM Role for Weather Data Collection
-resource "aws_iam_role" "weather_lambda_role" {
-  name = "weather_data_lambda_role"
+# Lambda IAM Role for Adzuna Job Extraction
+resource "aws_iam_role" "adzuna_lambda_role" {
+  name = "adzuna_data_lambda_role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -425,10 +428,9 @@ resource "aws_iam_role" "weather_lambda_role" {
   })
 }
 
-# IAM Policy for Weather Lambda
-resource "aws_iam_role_policy" "weather_lambda_policy" {
-  name = "weather_lambda_policy"
-  role = aws_iam_role.weather_lambda_role.id
+resource "aws_iam_role_policy" "adzuna_lambda_policy" {
+  name = "adzuna_lambda_policy"
+  role = aws_iam_role.adzuna_lambda_role.id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -450,101 +452,78 @@ resource "aws_iam_role_policy" "weather_lambda_policy" {
           "s3:ListBucket"
         ]
         Resource = [
-          "${aws_s3_bucket.weather_data_bucket.arn}",
-          "${aws_s3_bucket.weather_data_bucket.arn}/*"
+          "${aws_s3_bucket.oakvale_lakehouse_bucket.arn}",
+          "${aws_s3_bucket.oakvale_lakehouse_bucket.arn}/*"
         ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "dynamodb:GetItem",
+          "dynamodb:PutItem",
+          "dynamodb:UpdateItem"
+        ]
+        Resource = aws_dynamodb_table.adzuna_pipeline_state.arn
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "athena:StartQueryExecution",
+          "athena:GetQueryExecution",
+          "athena:GetQueryResults",
+          "glue:GetTable",
+          "glue:GetDatabase"
+        ]
+        Resource = "*"
       }
     ]
   })
 }
 
-# ECR Repositories for Weather Collectors
-resource "aws_ecr_repository" "weather_historical_ecr" {
-  name         = "weather-historical-collector"
-  force_delete = true
-
-  image_scanning_configuration {
-    scan_on_push = true
-  }
-}
-
-resource "aws_ecr_repository" "weather_hourly_ecr" {
-  name         = "weather-hourly-collector"
-  force_delete = true
-
-  image_scanning_configuration {
-    scan_on_push = true
-  }
-}
-
-# Historical Weather Lambda Function (Container)
-resource "aws_lambda_function" "historical_weather_lambda" {
-  function_name = "historical_weather_collector"
-  role          = aws_iam_role.weather_lambda_role.arn
-  timeout       = 300
-  memory_size   = 256
-
-  package_type = "Image"
-  image_uri    = "${aws_ecr_repository.weather_historical_ecr.repository_url}:latest"
+resource "aws_lambda_function" "adzuna_job_extractor" {
+  function_name = "adzuna_job_extractor"
+  role          = aws_iam_role.adzuna_lambda_role.arn
+  timeout       = 900
+  memory_size   = 1024
+  package_type  = "Image"
+  image_uri     = "${aws_ecr_repository.ecr_repo.repository_url}:latest"
 
   environment {
     variables = {
-      WEATHER_BUCKET = aws_s3_bucket.weather_data_bucket.id
+      ADZUNA_APP_ID        = var.adzuna_app_id
+      ADZUNA_APP_KEY       = var.adzuna_app_key
+      S3_BUCKET            = aws_s3_bucket.oakvale_lakehouse_bucket.id
+      DYNAMODB_STATE_TABLE = aws_dynamodb_table.adzuna_pipeline_state.name
+      GLUE_DATABASE        = "job_data_lake"
+      GLUE_TABLE           = "adzuna_jobs"
+      SEARCH_PHRASE        = "data engineer"
+      OVERLAP_HOURS        = "12"
+      BATCH_SIZE           = "1000"
     }
   }
 
   depends_on = [
-    aws_ecr_repository.weather_historical_ecr,
-    aws_iam_role_policy.weather_lambda_policy
+    aws_ecr_repository.ecr_repo,
+    aws_iam_role_policy.adzuna_lambda_policy
   ]
 }
 
-# Hourly Weather Lambda Function (Container)
-resource "aws_lambda_function" "hourly_weather_lambda" {
-  function_name = "hourly_weather_collector"
-  role          = aws_iam_role.weather_lambda_role.arn
-  timeout       = 60
-  memory_size   = 128
-
-  package_type = "Image"
-  image_uri    = "${aws_ecr_repository.weather_hourly_ecr.repository_url}:latest"
-
-  environment {
-    variables = {
-      WEATHER_BUCKET = aws_s3_bucket.weather_data_bucket.id
-    }
-  }
-
-  depends_on = [
-    aws_ecr_repository.weather_hourly_ecr,
-    aws_iam_role_policy.weather_lambda_policy
-  ]
-
-  # Force update when image changes
-  lifecycle {
-    replace_triggered_by = [
-      aws_ecr_repository.weather_hourly_ecr
-    ]
-  }
+resource "aws_cloudwatch_event_rule" "adzuna_daily_rule" {
+  name                = "adzuna-daily-extraction"
+  description         = "Trigger Adzuna job extraction daily"
+  schedule_expression = "rate(1 day)"
 }
 
-# EventBridge Rule for Hourly Updates
-resource "aws_cloudwatch_event_rule" "hourly_weather_rule" {
-  name                = "hourly-weather-collection"
-  description         = "Trigger weather data collection every hour"
-  schedule_expression = "rate(1 hour)"
+resource "aws_cloudwatch_event_target" "adzuna_lambda_target" {
+  rule      = aws_cloudwatch_event_rule.adzuna_daily_rule.name
+  target_id = "AdzunaLambdaTarget"
+  arn       = aws_lambda_function.adzuna_job_extractor.arn
 }
 
-resource "aws_cloudwatch_event_target" "hourly_weather_target" {
-  rule      = aws_cloudwatch_event_rule.hourly_weather_rule.name
-  target_id = "WeatherLambdaTarget"
-  arn       = aws_lambda_function.hourly_weather_lambda.arn
-}
-
-resource "aws_lambda_permission" "allow_eventbridge_hourly" {
-  statement_id  = "AllowEventBridgeInvoke"
+resource "aws_lambda_permission" "allow_eventbridge_adzuna" {
+  statement_id  = "AllowEventBridgeInvokeAdzuna"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.hourly_weather_lambda.function_name
+  function_name = aws_lambda_function.adzuna_job_extractor.function_name
   principal     = "events.amazonaws.com"
-  source_arn    = aws_cloudwatch_event_rule.hourly_weather_rule.arn
+  source_arn    = aws_cloudwatch_event_rule.adzuna_daily_rule.arn
 }
