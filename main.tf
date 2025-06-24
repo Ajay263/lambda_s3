@@ -4,12 +4,14 @@ provider "aws" {
 
 # S3 bucket for raw data
 resource "aws_s3_bucket" "oakvale_raw_bucket" {
-  bucket = var.raw_bucket_name
+  bucket        = var.raw_bucket_name
+  force_destroy = true  # This allows Terraform to delete the bucket even if it contains objects
 }
 
 # S3 bucket for lakehouse
 resource "aws_s3_bucket" "oakvale_lakehouse_bucket" {
-  bucket = var.lakehouse_bucket_name
+  bucket        = var.lakehouse_bucket_name
+  force_destroy = true  # This allows Terraform to delete the bucket even if it contains objects
 }
 
 # Create folder structure in lakehouse bucket
@@ -46,7 +48,8 @@ resource "aws_s3_object" "delta_jar_storage" {
 
 # S3 bucket for Glue scripts
 resource "aws_s3_bucket" "oakvale_lakehouse_glue_bucket" {
-  bucket = var.glue_script_bucket
+  bucket        = var.glue_script_bucket
+  force_destroy = true  # This allows Terraform to delete the bucket even if it contains objects
 }
 
 # Glue databases for the lakehouse
@@ -155,4 +158,39 @@ resource "aws_lambda_permission" "allow_cloudwatch" {
   function_name = aws_lambda_function.movie_data_generator.function_name
   principal     = "events.amazonaws.com"
   source_arn    = aws_cloudwatch_event_rule.daily_lambda_trigger.arn
+}
+
+# Versioning configuration for buckets
+resource "aws_s3_bucket_versioning" "oakvale_raw_bucket_versioning" {
+  bucket = aws_s3_bucket.oakvale_raw_bucket.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+resource "aws_s3_bucket_versioning" "oakvale_lakehouse_bucket_versioning" {
+  bucket = aws_s3_bucket.oakvale_lakehouse_bucket.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+resource "aws_s3_bucket_versioning" "oakvale_glue_bucket_versioning" {
+  bucket = aws_s3_bucket.oakvale_lakehouse_glue_bucket.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+# Legacy weather data bucket that needs cleanup
+resource "aws_s3_bucket" "weather_data_bucket" {
+  bucket        = "oakvale-raw-data-weather"
+  force_destroy = true  # This allows Terraform to delete the bucket even if it contains objects
+}
+
+resource "aws_s3_bucket_versioning" "weather_data_bucket_versioning" {
+  bucket = aws_s3_bucket.weather_data_bucket.id
+  versioning_configuration {
+    status = "Enabled"
+  }
 } 

@@ -24,6 +24,7 @@ Resources:
         - 'arn:aws:iam::aws:policy/AmazonECR2FullAccess'
         - 'arn:aws:iam::aws:policy/CloudWatchFullAccess'
         - 'arn:aws:iam::aws:policy/AWSLambda_FullAccess'
+        - 'arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess'
       Policies:
         - PolicyName: TerraformDeploymentPolicy
           PolicyDocument:
@@ -31,16 +32,8 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
-                  - 'dynamodb:CreateTable'
-                  - 'dynamodb:DeleteTable'
-                  - 'dynamodb:DescribeTable'
-                  - 'dynamodb:ListTables'
-                  - 'dynamodb:UpdateTable'
-                  - 'dynamodb:GetItem'
-                  - 'dynamodb:PutItem'
-                  - 'dynamodb:UpdateItem'
-                  - 'dynamodb:DeleteItem'
-                Resource: 'arn:aws:dynamodb:*:244920585605:table/*'
+                  - 'dynamodb:*'
+                Resource: '*'
               - Effect: Allow
                 Action:
                   - 's3:*'

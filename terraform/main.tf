@@ -35,10 +35,26 @@ resource "aws_s3_bucket" "oakvale_raw_bucket" {
   force_destroy = true
 }
 
+resource "aws_s3_bucket_versioning" "oakvale_raw_bucket_versioning" {
+  provider = aws.us-east-1
+  bucket   = aws_s3_bucket.oakvale_raw_bucket.id
+  versioning_configuration {
+    status = "Disabled"
+  }
+}
+
 resource "aws_s3_bucket" "oakvale_lakehouse_bucket" {
   provider      = aws.us-east-1
   bucket        = var.lakehouse_bucket_name
   force_destroy = true
+}
+
+resource "aws_s3_bucket_versioning" "oakvale_lakehouse_bucket_versioning" {
+  provider = aws.us-east-1
+  bucket   = aws_s3_bucket.oakvale_lakehouse_bucket.id
+  versioning_configuration {
+    status = "Disabled"
+  }
 }
 
 resource "aws_s3_bucket" "oakvale_lakehouse_glue_bucket" {
@@ -47,24 +63,11 @@ resource "aws_s3_bucket" "oakvale_lakehouse_glue_bucket" {
   force_destroy = true
 }
 
-resource "aws_s3_bucket_versioning" "oakvale_raw_bucket_versioning" {
-  bucket = aws_s3_bucket.oakvale_raw_bucket.id
-  versioning_configuration {
-    status = "Enabled"
-  }
-}
-
-resource "aws_s3_bucket_versioning" "oakvale_lakehouse_bucket_versioning" {
-  bucket = aws_s3_bucket.oakvale_lakehouse_bucket.id
-  versioning_configuration {
-    status = "Enabled"
-  }
-}
-
 resource "aws_s3_bucket_versioning" "oakvale_lakehouse_glue_bucket_versioning" {
-  bucket = aws_s3_bucket.oakvale_lakehouse_glue_bucket.id
+  provider = aws.us-east-1
+  bucket   = aws_s3_bucket.oakvale_lakehouse_glue_bucket.id
   versioning_configuration {
-    status = "Enabled"
+    status = "Disabled"
   }
 }
 
@@ -529,4 +532,19 @@ resource "aws_lambda_permission" "allow_eventbridge_adzuna" {
   function_name = aws_lambda_function.adzuna_job_extractor.function_name
   principal     = "events.amazonaws.com"
   source_arn    = aws_cloudwatch_event_rule.adzuna_daily_rule.arn
+}
+
+# Legacy weather data bucket that needs cleanup
+resource "aws_s3_bucket" "weather_data_bucket" {
+  provider      = aws.us-east-1
+  bucket        = "oakvale-raw-data-weather"
+  force_destroy = true
+}
+
+resource "aws_s3_bucket_versioning" "weather_data_bucket_versioning" {
+  provider = aws.us-east-1
+  bucket   = aws_s3_bucket.weather_data_bucket.id
+  versioning_configuration {
+    status = "Disabled"
+  }
 }
