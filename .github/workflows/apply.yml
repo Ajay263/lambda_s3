@@ -75,7 +75,12 @@ jobs:
 
       - name: Terraform Plan - Full
         if: github.event.inputs.action == 'apply-full'
-        run: terraform plan -input=false -out=tfplan
+        env:
+          ADZUNA_APP_ID: ${{ secrets.ADZUNA_APP_ID }}
+          ADZUNA_APP_KEY: ${{ secrets.ADZUNA_APP_KEY }}
+        run: terraform plan -input=false -out=tfplan \
+          -var="adzuna_app_id=$ADZUNA_APP_ID" \
+          -var="adzuna_app_key=$ADZUNA_APP_KEY"
 
       - name: Terraform Apply - Full
         if: github.event.inputs.action == 'apply-full'
