@@ -159,38 +159,3 @@ resource "aws_lambda_permission" "allow_cloudwatch" {
   principal     = "events.amazonaws.com"
   source_arn    = aws_cloudwatch_event_rule.daily_lambda_trigger.arn
 }
-
-# Versioning configuration for buckets
-resource "aws_s3_bucket_versioning" "oakvale_raw_bucket_versioning" {
-  bucket = aws_s3_bucket.oakvale_raw_bucket.id
-  versioning_configuration {
-    status = "Enabled"
-  }
-}
-
-resource "aws_s3_bucket_versioning" "oakvale_lakehouse_bucket_versioning" {
-  bucket = aws_s3_bucket.oakvale_lakehouse_bucket.id
-  versioning_configuration {
-    status = "Enabled"
-  }
-}
-
-resource "aws_s3_bucket_versioning" "oakvale_glue_bucket_versioning" {
-  bucket = aws_s3_bucket.oakvale_lakehouse_glue_bucket.id
-  versioning_configuration {
-    status = "Enabled"
-  }
-}
-
-# Legacy weather data bucket that needs cleanup
-resource "aws_s3_bucket" "weather_data_bucket" {
-  bucket        = "oakvale-raw-data-weather"
-  force_destroy = true  # This allows Terraform to delete the bucket even if it contains objects
-}
-
-resource "aws_s3_bucket_versioning" "weather_data_bucket_versioning" {
-  bucket = aws_s3_bucket.weather_data_bucket.id
-  versioning_configuration {
-    status = "Enabled"
-  }
-} 
