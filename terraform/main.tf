@@ -39,7 +39,7 @@ resource "aws_s3_bucket_versioning" "oakvale_raw_bucket_versioning" {
   provider = aws.us-east-1
   bucket   = aws_s3_bucket.oakvale_raw_bucket.id
   versioning_configuration {
-    status = "Disabled"
+    status = "Suspended"
   }
 }
 
@@ -53,7 +53,7 @@ resource "aws_s3_bucket_versioning" "oakvale_lakehouse_bucket_versioning" {
   provider = aws.us-east-1
   bucket   = aws_s3_bucket.oakvale_lakehouse_bucket.id
   versioning_configuration {
-    status = "Disabled"
+    status = "Suspended"
   }
 }
 
@@ -67,7 +67,7 @@ resource "aws_s3_bucket_versioning" "oakvale_lakehouse_glue_bucket_versioning" {
   provider = aws.us-east-1
   bucket   = aws_s3_bucket.oakvale_lakehouse_glue_bucket.id
   versioning_configuration {
-    status = "Disabled"
+    status = "Suspended"
   }
 }
 
@@ -545,6 +545,6 @@ resource "aws_s3_bucket_versioning" "weather_data_bucket_versioning" {
   provider = aws.us-east-1
   bucket   = aws_s3_bucket.weather_data_bucket.id
   versioning_configuration {
-    status = "Disabled"
+    status = "Suspended"
   }
 }
