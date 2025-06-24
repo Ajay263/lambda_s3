@@ -5,13 +5,13 @@ provider "aws" {
 # S3 bucket for raw data
 resource "aws_s3_bucket" "oakvale_raw_bucket" {
   bucket        = var.raw_bucket_name
-  force_destroy = true  # This allows Terraform to delete the bucket even if it contains objects
+  force_destroy = true
 }
 
 # S3 bucket for lakehouse
 resource "aws_s3_bucket" "oakvale_lakehouse_bucket" {
   bucket        = var.lakehouse_bucket_name
-  force_destroy = true  # This allows Terraform to delete the bucket even if it contains objects
+  force_destroy = true
 }
 
 # Create folder structure in lakehouse bucket
@@ -49,7 +49,7 @@ resource "aws_s3_object" "delta_jar_storage" {
 # S3 bucket for Glue scripts
 resource "aws_s3_bucket" "oakvale_lakehouse_glue_bucket" {
   bucket        = var.glue_script_bucket
-  force_destroy = true  # This allows Terraform to delete the bucket even if it contains objects
+  force_destroy = true
 }
 
 # Glue databases for the lakehouse
